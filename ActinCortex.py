@@ -56,7 +56,7 @@ for filename in Data:
     n = contour2[1] - normal * contour2[0]
     x = np.linspace(230, 240, 500)
     line = normal[0]* x + n[0]
-    
+    #newline
     plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
     plt.plot(contour2[0], contour2[1],c = "g")
     plt.plot(contour[:,0], contour[:,1], c = "violet")
@@ -65,6 +65,8 @@ for filename in Data:
     #plt.plot(contour[:, 0], contour[:,1])
     #plt.plot(contour2[0],contour2[1])
     plt.show()
+    
+    
     """
     memb_ls, actin_ls, radius = IM.linescan(memb, actin, cell_max_x,cell_max_y, 
                                             cell_min, pix_size,linescan_length)
