@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import ImageProcess as IM
 import theoreticalModel as TM
 import lmfit
+from scipy.interpolate import RectBivariateSpline
 
 #Collect all filenames
 Data = []
@@ -56,7 +57,10 @@ for filename in Data:
     n = contour2[1] - normal * contour2[0]
     x = np.linspace(230, 240, 500)
     line = normal[0]* x + n[0]
-    #newline
+    
+    memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
+    linescan = memb_interpol.ev(x, line)
+    plt.figure(1)
     plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
     plt.plot(contour2[0], contour2[1],c = "g")
     plt.plot(contour[:,0], contour[:,1], c = "violet")
@@ -64,6 +68,8 @@ for filename in Data:
     plt.plot(contour2[0][0], contour2[1][0], c = "r", marker = "+")
     #plt.plot(contour[:, 0], contour[:,1])
     #plt.plot(contour2[0],contour2[1])
+    plt.figure(2)
+    plt.plot(np.arange(len(x)), linescan)
     plt.show()
     
     
