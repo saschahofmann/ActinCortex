@@ -5,7 +5,7 @@ from scipy import exp
 from lmfit import Model
 import matplotlib.pyplot as plt
 from pyefd import elliptic_fourier_descriptors
-from pyefd import plot_efd
+from scipy.interpolate import RectBivariateSpline
 
 def scale(image):
     """Scales image to an 8-bit image increases the contrast
@@ -304,50 +304,30 @@ def contour_2(contour, locus):
 
     #contour = np.ndarray(x_contour, y_contour)
     coeffs = elliptic_fourier_descriptors(contour, order=10, normalize= False)
-    x, y = fourierContour(coeffs, locus = locus, n = 5000)
+    x, y = fourierContour(coeffs, locus = locus, n = 1000)
     return (x, y)
 
 def smooth_Linescan(memb, contour, linescan_length, pix_size):
-    contour = np.vstack((contour[0],contour[1])).T
-    pos_x, pos_y = centroid_of_polygon(contour)
-    x_contour = contour[:,0] - pos_x
-    y_contour = contour[:,1] - pos_y
-    #2.) Translate contour to polar coordinates
-    rho_contour,phi_contour  = cart2pol(x_contour,y_contour)
-    #3.) Translate the picture to polar coordinates and define the pos_x and
-    # pos_y as the center of the image
-    #TODO: get rid of int()
-    img_polar_all = reproject_image_into_polar(memb, (int(pos_x),int(pos_y)))
-    # Create linescans ending at the outer Contour 
-    # with a equal length : linescan_length
-    # Make a gauss fit around the maximum
-    # for each contour point find points in the picture with a similar angle 
-    # (difference as close as zero as possible)
-    
-    Smallest_difference_rho, Smallest_difference_phi = [],[]
-    memb_ls = [] 
-    radius = []
-    for i in range(len(rho_contour)):
-        smallest_difference_phi = np.argmin(abs(img_polar_all[2] 
-                                                - phi_contour[i])) 
-        #TODO: find option without adding 30 px !
-        smallest_difference_rho = np.argmin(abs(img_polar_all[1] 
-                                                - rho_contour[i])) 
-        if smallest_difference_phi not in Smallest_difference_phi:
-            
-            #go towards inside the cell and get an intensity profile
-            Smallest_difference_rho.append(smallest_difference_rho)  
-            Smallest_difference_phi.append(smallest_difference_phi)
-
-            # Take membran maximum as fix point
-            linescan = img_polar_all[0][0][smallest_difference_phi,
-                                          smallest_difference_rho - linescan_length/2:
-                                          smallest_difference_rho + linescan_length/2]
-            r = img_polar_all[1][smallest_difference_rho - linescan_length/2:
-                                          smallest_difference_rho + linescan_length/2]
-            memb_ls.append(linescan)
-            radius.append(r*pix_size)
-    return memb_ls, radius     
+    x_contour = contour[0]
+    y_contour = contour[1]
+    print x_contour[0] -x_contour[-1]
+    dx = np.diff(x_contour)
+    dy = np.diff(y_contour)
+    dx = np.append(dx, x_contour[0]-x_contour[-1])
+    dy = np.append(dy,y_contour[0]-y_contour[-1])
+    derivative = dy/dx
+    m = -1.0/derivative
+    print derivative
+    n = y_contour - m * x_contour
+    x_length = -m/(m**2+1) + np.sqrt((m/(m**2+1))**2 +linescan_length**2/(1+m**2))
+    x = np.dot(np.ones((len(x_contour), linescan_length)).T, (np.eye(len(x_contour))*x_contour))
+    x_steps = np.tensordot(np.arange(-linescan_length/2, linescan_length/2, 1),
+                           x_length.T/linescan_length, axes = 0).T
+    x = x.T + x_steps
+    perpendicular_line = m[np.newaxis].T * x + n[np.newaxis].T
+    memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
+    linescan = memb_interpol.ev(x, perpendicular_line)
+    return linescan, x, perpendicular_line
     
     
     
@@ -400,7 +380,7 @@ def fourierContour(coeffs, locus=(0., 0.), n=300):
         _range = xrange
     except NameError:
         _range = range
-    t = np.linspace(0, 1.0, n)
+    t = np.linspace(0, 1.0, n, endpoint = False)
     xt = np.ones((n,)) * locus[0]
     yt = np.ones((n,)) * locus[1]
     for n in _range(coeffs.shape[0]):

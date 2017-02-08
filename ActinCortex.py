@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import ImageProcess as IM
 import theoreticalModel as TM
 import lmfit
-from scipy.interpolate import RectBivariateSpline
+
 
 #Collect all filenames
 Data = []
@@ -45,35 +45,26 @@ for filename in Data:
     actin = IM.scale(actin)
     contour, locus = IM.contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     contour2 = IM.contour_2(contour, locus)
-    memb_ls, radius = IM.smooth_Linescan(memb, contour2, linescan_length, pix_size)
-    
+    linescan, x, y = IM.smooth_Linescan(memb, contour2, linescan_length, pix_size)
+    plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+    for i in range(len(x)):
+        plt.plot(x[i,:], y[i,:])
+    plt.show()
 
-    dx = np.diff(contour2[0])
-    dy = np.diff(contour2[1])
-    dx = np.append(dx, contour2[0][0]-contour2[0][-1])
-    dy = np.append(dy,contour2[1][0]-contour2[1][-1])
-    derivative = dy/dx
-    normal = -1.0/derivative
-    n = contour2[1] - normal * contour2[0]
-    x = np.linspace(230, 240, 500)
-    line = normal[0]* x + n[0]
-    
-    memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
-    linescan = memb_interpol.ev(x, line)
+
+    """
     plt.figure(1)
     plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
     plt.plot(contour2[0], contour2[1],c = "g")
     plt.plot(contour[:,0], contour[:,1], c = "violet")
     plt.plot(x, line)
     plt.plot(contour2[0][0], contour2[1][0], c = "r", marker = "+")
-    #plt.plot(contour[:, 0], contour[:,1])
-    #plt.plot(contour2[0],contour2[1])
     plt.figure(2)
     plt.plot(np.arange(len(x)), linescan)
     plt.show()
     
     
-    """
+    
     memb_ls, actin_ls, radius = IM.linescan(memb, actin, cell_max_x,cell_max_y, 
                                             cell_min, pix_size,linescan_length)
     plt.imshow(memb_ls,origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
