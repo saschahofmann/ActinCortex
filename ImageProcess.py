@@ -303,21 +303,19 @@ def contour_2(contour, locus):
     x_contour, y_contour = contour[0], contour[1]
 
     #contour = np.ndarray(x_contour, y_contour)
-    coeffs = elliptic_fourier_descriptors(contour, order=10, normalize= False)
-    x, y = fourierContour(coeffs, locus = locus, n = 1000)
+    coeffs = elliptic_fourier_descriptors(contour, order=15, normalize= False)
+    x, y = fourierContour(coeffs, locus = locus, n = 100)
     return (x, y)
 
 def smooth_Linescan(memb, contour, linescan_length, pix_size):
     x_contour = contour[0]
     y_contour = contour[1]
-    print x_contour[0] -x_contour[-1]
     dx = np.diff(x_contour)
     dy = np.diff(y_contour)
     dx = np.append(dx, x_contour[0]-x_contour[-1])
     dy = np.append(dy,y_contour[0]-y_contour[-1])
     derivative = dy/dx
     m = -1.0/derivative
-    print derivative
     n = y_contour - m * x_contour
     x_length = -m/(m**2+1) + np.sqrt((m/(m**2+1))**2 +linescan_length**2/(1+m**2))
     x = np.dot(np.ones((len(x_contour), linescan_length)).T, (np.eye(len(x_contour))*x_contour))
@@ -326,6 +324,7 @@ def smooth_Linescan(memb, contour, linescan_length, pix_size):
     x = x.T + x_steps
     perpendicular_line = m[np.newaxis].T * x + n[np.newaxis].T
     memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
+    print perpendicular_line
     linescan = memb_interpol.ev(x, perpendicular_line)
     return linescan, x, perpendicular_line
     

@@ -46,14 +46,17 @@ for filename in Data:
     contour, locus = IM.contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     contour2 = IM.contour_2(contour, locus)
     linescan, x, y = IM.smooth_Linescan(memb, contour2, linescan_length, pix_size)
-    plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
-    for i in range(len(x)):
-        plt.plot(x[i,:], y[i,:])
+    plt.imshow(linescan, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+    #plt.plot(contour2[0], contour2[1],c = "g")
+    #plt.plot(x[25, :], y[25, :])  
+
+    plt.figure(2)
+    plt.plot(np.arange(100), linescan[25])
     plt.show()
 
 
     """
-    plt.figure(1)
+
     plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
     plt.plot(contour2[0], contour2[1],c = "g")
     plt.plot(contour[:,0], contour[:,1], c = "violet")
