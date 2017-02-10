@@ -6,6 +6,7 @@ from lmfit import Model
 import matplotlib.pyplot as plt
 from pyefd import elliptic_fourier_descriptors
 from scipy.interpolate import RectBivariateSpline
+from matplotlib.path import Path
 
 def scale(image):
     """Scales image to an 8-bit image increases the contrast
@@ -46,7 +47,7 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size):
     
     #plt.figure(1)
     #plt.imshow(closing,origin='lower',cmap = 'gray', 
-    #           interpolation = 'bilinear',vmin=0,vmax=255)   
+    #          interpolation = 'bilinear',vmin=0,vmax=255)   
     #plt.show()
     
     #Conotur finding!
@@ -302,30 +303,40 @@ def contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
 def contour_2(contour, locus):
     x_contour, y_contour = contour[0], contour[1]
 
-    #contour = np.ndarray(x_contour, y_contour)
     coeffs = elliptic_fourier_descriptors(contour, order=15, normalize= False)
-    x, y = fourierContour(coeffs, locus = locus, n = 100)
+    x, y = fourierContour(coeffs, locus = locus, n = 1000)
     return (x, y)
 
 def smooth_Linescan(memb, contour, linescan_length, pix_size):
     x_contour = contour[0]
     y_contour = contour[1]
+    path = Path(np.vstack((x_contour,y_contour)).T)
+    # Calculating the slope of our Linescan 
+    # First calculate the tangent of the contour
+    # The derivative at one point is the difference between 
+    # This point and the next
     dx = np.diff(x_contour)
     dy = np.diff(y_contour)
+    # Adding derivative for the last Point 
     dx = np.append(dx, x_contour[0]-x_contour[-1])
     dy = np.append(dy,y_contour[0]-y_contour[-1])
     derivative = dy/dx
+    # The slope and the offset of the normal
     m = -1.0/derivative
     n = y_contour - m * x_contour
+    # Calculate a matrix with the x values for every linescan
+    # Length in x-direction is depending on the slope
     x_length = -m/(m**2+1) + np.sqrt((m/(m**2+1))**2 +linescan_length**2/(1+m**2))
-    x = np.dot(np.ones((len(x_contour), linescan_length)).T, (np.eye(len(x_contour))*x_contour))
+    x = np.tile(x_contour[np.newaxis].T, (1, linescan_length))
     x_steps = np.tensordot(np.arange(-linescan_length/2, linescan_length/2, 1),
                            x_length.T/linescan_length, axes = 0).T
-    x = x.T + x_steps
+    x = x + x_steps
     perpendicular_line = m[np.newaxis].T * x + n[np.newaxis].T
+    mask = path.contains_points(np.vstack((x[:,0], perpendicular_line[:,0])).T)
+    #mask = np.tile(mask, (len(x), 1)).T
     memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
-    print perpendicular_line
     linescan = memb_interpol.ev(x, perpendicular_line)
+    linescan[mask, :] = linescan[mask, :][:,::-1]
     return linescan, x, perpendicular_line
     
     

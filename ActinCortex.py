@@ -46,8 +46,14 @@ for filename in Data:
     contour, locus = IM.contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     contour2 = IM.contour_2(contour, locus)
     linescan, x, y = IM.smooth_Linescan(memb, contour2, linescan_length, pix_size)
+    num = 2
+    line = [640]
+    dist = (x[line,num]-x[line, num-1])**2 + (y[line, num]- y[line, num-1])**2
+    print dist
     plt.imshow(linescan, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
-    #plt.plot(contour2[0], contour2[1],c = "g")
+    #for i in range(len(x)):
+    #   plt.plot(x[i, :], y[i, :])
+    #plt.plot(contour[:,0], contour[:,1],c = "g")
     #plt.plot(x[25, :], y[25, :])  
 
     plt.figure(2)
