@@ -45,24 +45,40 @@ for filename in Data:
     actin = IM.scale(actin)
     contour, locus = IM.contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     contour2 = IM.contour_2(contour, locus)
-    linescan, x, y = IM.smooth_Linescan(memb, contour2, linescan_length, pix_size)
-    num = 2
-    line = [640]
-    dist = (x[line,num]-x[line, num-1])**2 + (y[line, num]- y[line, num-1])**2
-    print dist
-    plt.imshow(linescan, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
-    #for i in range(len(x)):
-    #   plt.plot(x[i, :], y[i, :])
-    #plt.plot(contour[:,0], contour[:,1],c = "g")
-    #plt.plot(x[25, :], y[25, :])  
-
-    plt.figure(2)
-    plt.plot(np.arange(100), linescan[25])
+    memb_ls, actin_ls= IM.smooth_Linescan(memb, actin, contour2, linescan_length, pix_size)
+    rad = np.arange(linescan_length)*pix_size
+    bin_size = range(1, len(memb_ls)+1, 20)
+    av_h = []
+    for i in bin_size:
+        average_memb = IM.average_Linescan(memb_ls, i, )
+        average_actin = IM.average_Linescan(actin_ls, i, )
+        #Get intra- and extracellular intensities
+        memb_amp, memb_mean, memb_sigma = IM.fitten(average_memb, rad)
+        actin_amp, actin_mean, actin_sigma = IM.fitten(average_actin, rad)
+        Intensity_in, Intensity_out = IM.get_Intensities(average_actin, 
+                                                        rad, actin_mean,calc_dist)
+                              
+        thick = []
+        for j in range(len(average_memb)):
+            x_m = memb_mean[j]
+            i_in, i_out = Intensity_in[j], Intensity_out[j]
+            pars2 = TM.get_parameters_default2(x_m, sigma, i_in, i_out)
+            fit2 = lmfit.minimize(TM.residual2, pars2, kws={'x_c': actin_mean[j], 'i_p': actin_amp[j]})
+            h = fit2.params["h"].value
+            thick.append(h)   
+        av_h.append(np.mean(thick))
+        
+        plt.figure(1, figsize =(16,16))
+        
+    plt.title("Bin Size dependency of delta")
+    plt.plot(bin_size, av_h, 'o-', label = "Bin Size dependency")
+    plt.xlabel('Bin Size')
+    plt.ylabel('h [um]')
+    plt.legend()
+    plt.savefig(filename.rstrip(".lsm")+"_"+str(np.max(bin_size)/len(bin_size))+'_binsteps_0_overlap.png')
     plt.show()
-
-
+    
     """
-
     plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
     plt.plot(contour2[0], contour2[1],c = "g")
     plt.plot(contour[:,0], contour[:,1], c = "violet")

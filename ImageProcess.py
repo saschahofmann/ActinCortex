@@ -155,9 +155,9 @@ def fitten(linescan, r):
         line_for_fitting = linescan[i][max_lin -2:max_lin + 3].astype(float)
         y = np.array(line_for_fitting) 
         gmod = Model(gauss)
-        x = r[i][max_lin -2:max_lin + 3]
+        x = r[max_lin -2:max_lin + 3]
         results = gmod.fit(y, x = x, a = linescan[i][max_lin], 
-                           x0 = r[i][max_lin], sigma = 0.2)
+                           x0 = r[max_lin], sigma = 0.2)
         amp.append(results.params["a"].value)
         mean.append(results.params["x0"].value)
         sigma.append(results.params["sigma"].value)
@@ -304,10 +304,11 @@ def contour_2(contour, locus):
     x_contour, y_contour = contour[0], contour[1]
 
     coeffs = elliptic_fourier_descriptors(contour, order=15, normalize= False)
-    x, y = fourierContour(coeffs, locus = locus, n = 1000)
+    x, y = fourierContour(coeffs, locus = locus, n = 500)
     return (x, y)
 
-def smooth_Linescan(memb, contour, linescan_length, pix_size):
+def smooth_Linescan(memb, actin,  contour, linescan_length, pix_size):
+    #memb_rot = np.rot90(memb, k = 3)
     x_contour = contour[0]
     y_contour = contour[1]
     path = Path(np.vstack((x_contour,y_contour)).T)
@@ -333,11 +334,15 @@ def smooth_Linescan(memb, contour, linescan_length, pix_size):
     x = x + x_steps
     perpendicular_line = m[np.newaxis].T * x + n[np.newaxis].T
     mask = path.contains_points(np.vstack((x[:,0], perpendicular_line[:,0])).T)
+    mask = np.invert(mask)
     #mask = np.tile(mask, (len(x), 1)).T
     memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
-    linescan = memb_interpol.ev(x, perpendicular_line)
+    actin_interpol = RectBivariateSpline(np.arange(actin.shape[0]), np.arange(actin.shape[1]), actin)
+    linescan = memb_interpol.ev(perpendicular_line, x)
     linescan[mask, :] = linescan[mask, :][:,::-1]
-    return linescan, x, perpendicular_line
+    actin_ls = actin_interpol.ev(perpendicular_line, x)
+    actin_ls[mask, :]= actin_ls[mask, :][:,::-1]
+    return linescan, actin_ls
     
     
     
@@ -351,7 +356,7 @@ def average_Linescan(Linescan, bin_size, overlap = 0):
             #average_Linescan.append(np.sum(Linescan[a: a + bin_size], 0)/float(bin_size))
             average_Linescan.append(np.mean(Linescan[a: a + bin_size], 0))
         else:
-            cut = Linescan[a: len(Linescan)] + Linescan[:bin_size - len(Linescan) + a ]
+            cut = np.concatenate((Linescan[a: len(Linescan)],Linescan[:bin_size - len(Linescan) + a]),0)
             #average_Linescan.append(np.sum(cut,0)/float(bin_size))
             average_Linescan.append(np.mean(cut, 0))
         a += bin_size - overlap
@@ -367,8 +372,8 @@ def get_Intensities(average_actin, rad, mean, calc_dist):
         # and outside of the cell
         r_in = mean[i]- calc_dist
         r_out = mean[i] + calc_dist 
-        r_in = np.argmin(abs(r_in - rad[i])) 
-        r_out = np.argmin(abs(r_out - rad[i]))
+        r_in = np.argmin(abs(r_in - rad)) 
+        r_out = np.argmin(abs(r_out - rad))
           
         # Mean of the 10 next pixel to those distances
         i_in = np.mean(average_actin[i][r_in-10: r_in ]) 
