@@ -6,6 +6,7 @@ from lmfit import Model
 import matplotlib.pyplot as plt
 from pyefd import elliptic_fourier_descriptors
 from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import NearestNDInterpolator
 from matplotlib.path import Path
 
 def scale(image):
@@ -147,6 +148,8 @@ def fitten(linescan, r):
     """Afterwards a gauss fit around the maximum (5 points) of every individual
     linescan is approximated.The returned gauss array contains 0: the peak
     height, 1: the mean value and 2: the standard deviation"""
+    if type(linescan[0]) == np.float64:
+        linescan = [linescan]
     amp, mean, sigma = [], [],[]
     for i in range(len(linescan)):
         # Make a gauss fit
@@ -163,7 +166,11 @@ def fitten(linescan, r):
         sigma.append(results.params["sigma"].value)
     return amp, mean, sigma
                    
-def contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length):
+def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length):
+    """Creates a contour on the maxima of the membrane by perfoming a 
+    transformation to polar coordinates, linescanning and choosing the maxima 
+    as contour."""
+    
     Cells = findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size)
     #Use the outer contour (larger area) 
     #to do a linescan, starting at the conotur
@@ -188,7 +195,6 @@ def contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     # (difference as close as zero as possible)
     
     Smallest_difference_rho, Smallest_difference_phi = [],[]
-    memb_ls = [] 
     phi = []
     radius = []
     for i in range(len(rho_contour)):
@@ -220,17 +226,17 @@ def contour_1(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length)
     contour = np.vstack((x,y)).T
     return contour, (pos_x, pos_y)
 
-def contour_2(contour, locus):
-    x_contour, y_contour = contour[0], contour[1]
-
+def smoothed_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length, n = 1000):
+    contour, locus = first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length )
     coeffs = elliptic_fourier_descriptors(contour, order=15, normalize= False)
-    x, y = fourierContour(coeffs, locus = locus, n = 500)
-    return (x, y)
+    x, y = fourierContour(coeffs, locus, n )
+    return x, y
 
-def smooth_Linescan(memb, actin,  contour, linescan_length, pix_size):
-    #memb_rot = np.rot90(memb, k = 3)
-    x_contour = contour[0]
-    y_contour = contour[1]
+def smooth_Linescan(memb, actin, cell_max_x, cell_max_y, cell_min, 
+                    linescan_length, pix_size, n =1000):
+    
+    x_contour, y_contour = smoothed_contour(memb, cell_max_x, cell_max_y, 
+                                            cell_min, pix_size, linescan_length, n)
     path = Path(np.vstack((x_contour,y_contour)).T)
     # Calculating the slope of our Linescan 
     # First calculate the tangent of the contour
@@ -246,23 +252,26 @@ def smooth_Linescan(memb, actin,  contour, linescan_length, pix_size):
     m = -1.0/derivative
     n = y_contour - m * x_contour
     # Calculate a matrix with the x values for every linescan
+    # We want to have Linescans with linescan_length
     # Length in x-direction is depending on the slope
     x_length = -m/(m**2+1) + np.sqrt((m/(m**2+1))**2 +linescan_length**2/(1+m**2))
     x = np.tile(x_contour[np.newaxis].T, (1, linescan_length))
     x_steps = np.tensordot(np.arange(-linescan_length/2, linescan_length/2, 1),
                            x_length.T/linescan_length, axes = 0).T
     x = x + x_steps
+    # Calculate linear function for Linescan
     perpendicular_line = m[np.newaxis].T * x + n[np.newaxis].T
-    mask = path.contains_points(np.vstack((x[:,0], perpendicular_line[:,0])).T)
-    mask = np.invert(mask)
-    #mask = np.tile(mask, (len(x), 1)).T
+    # Create the interpolations for membrane and cortex
     memb_interpol = RectBivariateSpline(np.arange(memb.shape[0]), np.arange(memb.shape[1]), memb)
     actin_interpol = RectBivariateSpline(np.arange(actin.shape[0]), np.arange(actin.shape[1]), actin)
-    linescan = memb_interpol.ev(perpendicular_line, x)
-    linescan[mask, :] = linescan[mask, :][:,::-1]
+    memb_ls = memb_interpol.ev(perpendicular_line, x)
     actin_ls = actin_interpol.ev(perpendicular_line, x)
+    # Make sure Linescans go from inside to outside
+    mask = path.contains_points(np.vstack((x[:,0], perpendicular_line[:,0])).T)
+    mask = np.invert(mask)
+    memb_ls[mask, :] = memb_ls[mask, :][:,::-1]
     actin_ls[mask, :]= actin_ls[mask, :][:,::-1]
-    return linescan, actin_ls
+    return memb_ls, actin_ls
     
     
     
@@ -283,6 +292,8 @@ def average_Linescan(Linescan, bin_size, overlap = 0):
     return average_Linescan
 
 def get_Intensities(average_actin, rad, mean, calc_dist):
+    if type(average_actin[0])== np.float64:
+        average_actin = [average_actin]
     Intensity_in, Intensity_out = [],[]
     for i in range(len(average_actin)):
         
