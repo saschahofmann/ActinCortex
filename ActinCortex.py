@@ -46,6 +46,7 @@ for filename in Data:
     memb_ls, actin_ls= IM.smooth_Linescan(memb, actin, cell_max_x, cell_max_y, 
                                           cell_min, linescan_length, pix_size, 600 )
     rad = np.arange(linescan_length)*pix_size
+    """
     average_memb = IM.average_Linescan(memb_ls, bin_size, 100)[3]
     average_actin = IM.average_Linescan(actin_ls, bin_size, 100)[3]
     memb_amp, memb_mean, memb_sigma = IM.fitten(average_memb, rad)
@@ -63,6 +64,7 @@ for filename in Data:
 """
     bin_size = range(1, len(memb_ls)+1, 20)
     av_h = []
+    plt.figure(1, figsize =(16,16))
     for i in bin_size:
         average_memb = IM.average_Linescan(memb_ls, i, )
         average_actin = IM.average_Linescan(actin_ls, i, )
@@ -81,14 +83,14 @@ for filename in Data:
             h = fit2.params["h"].value
             thick.append(h)   
         av_h.append(np.mean(thick))
+        plt.plot(i*np.ones(len(thick)), thick, c = "b", ls = "", marker = "+")
         
-        plt.figure(1, figsize =(16,16))
         
     plt.title("Bin Size dependency of delta")
-    plt.plot(bin_size, av_h, 'o-', label = "Bin Size dependency")
+    plt.plot(bin_size, av_h, 'o-', c = "r", label = "Bin Size dependency")
     plt.xlabel('Bin Size')
     plt.ylabel('h [um]')
     plt.legend()
     plt.savefig(filename.rstrip(".lsm")+"_"+str(np.max(bin_size)/len(bin_size))+'_binsteps_0_overlap.png')
     plt.show()
- """      
+      
