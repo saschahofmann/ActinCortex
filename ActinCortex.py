@@ -77,25 +77,10 @@ fit = lmfit.minimize(TM.residual2, pars, kws = {'x_c': actin_mean, 'i_p': actin_
 i_c = fit.params["i_c"].value
 h = fit.params["h"].value
 y = TM.convolution(rad, h, i_c, memb_mean[0], sigma, Intensity_in[0], Intensity_out[0])
-smalldelta =  sigma**2 / h * np.log((Intensity_out[0] -i_c)/(Intensity_in[0] - i_c))      
-delta =  h/2 + smalldelta       
-X_c = memb_mean[0] - delta + smalldelta
-x = rad - X_c + h/2
-from scipy.special import erf 
-a = np.sqrt(1/(2*sigma**2))
-integral = (i_c -Intensity_in[0])*0.5*(1- erf(-a*x))
-#print integral
-#print x , i_c -Intensity_in[0], X_c
-#print (i_c -Intensity_in[0])*TM.cdf(np.float64(x), sigma)
-cdf1 = (i_c -Intensity_in[0])*TM.cdf(rad -X_c + h/2 , sigma)
-cdf2 = (Intensity_out[0] - i_c)*TM.cdf(rad- X_c -h/2, sigma)
 plt.figure(1)
 plt.plot(rad, average_memb,c  ="b")
 plt.plot(rad, average_actin, c = "g")
 plt.plot(rad, y, c = "r")
-#plt.plot(rad, integral)
-#plt.plot(rad, cdf2)
-#plt.plot(rad, cdf1)
 plt.show()
 
 print h
