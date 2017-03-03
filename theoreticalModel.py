@@ -8,22 +8,16 @@ Created on Fri Jan 20 16:33:36 2017
 import scipy.integrate as integrate
 import lmfit 
 import numpy as np
-
+from scipy.special import erf 
 
 def gauss(x,a,x0,sigma):
     return a*np.exp(-(x-x0)**2/(2*sigma**2))  
   
-def cdf(x,sigma):
+def cdf(x, sigma):
     """Calculates the cumulative distribution function for a gauss distributed probability density"""
-    if type(x) is np.float64:
-        inte = (integrate.quad(gauss, - np.inf, x, 
-                                args=(1/np.sqrt(2* np.pi * sigma**2),0,sigma)))[0]
-    else:
-        inte = np.zeros_like(x)
-        for i in range(len(x)):
-            inte[i]=(integrate.quad(gauss, - np.inf, x[i], 
-                                    args=(1/np.sqrt(2* np.pi * sigma**2),0,sigma)))[0]
-    return inte
+    factor = np.sqrt(1/(2*sigma**2))
+    integral = 0.5*(1- erf(-factor*x))
+    return integral
 
 def convolution(x,h, i_c, x_m, sigma, i_in, i_out):
     """Theoretical Model for a Actin Cortex with a thickness below the diffraction limit. 
@@ -89,7 +83,7 @@ def get_parameters_default(delta, x_m,sigma, i_in, i_out):
     # The order of the parameters must match the order 
     # of 'parameter_names' and 'parameter_keys'.
     params = lmfit.Parameters()
-    params.add("h", value =0.1 , min = 0.01, max =1.)
+    params.add("h", value =0.1 , min = 0.1, max =1.)
     params.add("i_c", value = 200, min = i_in+1., max = 500)
     params.add("x_m", value = x_m, vary = False)
     params.add("sigma", value = sigma, vary = False)
@@ -121,8 +115,8 @@ def get_parameters_default2(x_m, sigma, i_in, i_out):
     # The order of the parameters must match the order 
     # of 'parameter_names' and 'parameter_keys'.
     params = lmfit.Parameters()
-    params.add("h", value =0.1 , min = 0.0001, max =1.)
-    params.add("i_c", value = 200., min = i_in+1., max = 1000)
+    params.add("h", value =0.1 , min = 0.0, max = 1.)
+    params.add("i_c", value = 200., min = i_in, max = 1000)
     params.add("x_m", value = x_m, vary = False)
     params.add("sigma", value = sigma, vary = False)
     params.add("i_in", value = i_in, vary = False)
