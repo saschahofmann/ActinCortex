@@ -64,32 +64,7 @@ def model(params, x):
                        sigma = params["sigma"].value,
                        i_in = params["i_in"].value,
                        i_out = params["i_out"].value)
-        
-def residual(params, x, linescan):
-    """Computes residuals (= difference between model and data points) for fitting
-        
-    Parameters
-    ----------
-    params: lmfit.Parameters
-                The fitting parameters for `model`
-     x:     np.ndarray
-               Distance from cell center in pixel
-    linescan: np.ndarray
-                  Experimental data --> measured Intensity"""
-    return linescan - model(params, x)
 
-
-def get_parameters_default(delta, x_m,sigma, i_in, i_out):
-    # The order of the parameters must match the order 
-    # of 'parameter_names' and 'parameter_keys'.
-    params = lmfit.Parameters()
-    params.add("h", value =0.1 , min = 0.1, max =1.)
-    params.add("i_c", value = 200, min = i_in+1., max = 500)
-    params.add("x_m", value = x_m, vary = False)
-    params.add("sigma", value = sigma, vary = False)
-    params.add("i_in", value = i_in, vary = False)
-    params.add("i_out", value = i_out, vary = False)
-    return params
 
 
 def checker(h, i_c, x_m, sigma, i_in, i_out):
@@ -105,18 +80,26 @@ def model2(params):
                    i_in = params["i_in"].value,
                    i_out = params["i_out"].value )
     
-def residual2(params, x_c, i_p):
-    
+def residual(params, x_c, i_p):
+    """Computes residuals (= difference between model and data points) for fitting
+        
+    Parameters
+    ----------
+    params: lmfit.Parameters
+                The fitting parameters for 'model'
+    """
+    #print "Did it x_c: ", model2(params), "i_p: ",   model(params, model2(params))  
     res1 = x_c - model2(params)
     res2 = i_p - model(params, model2(params))
     return res1, res2
 
-def get_parameters_default2(x_m, sigma, i_in, i_out):
+def get_parameters_default(x_m, sigma, i_in, i_out):
     # The order of the parameters must match the order 
     # of 'parameter_names' and 'parameter_keys'.
+    int_max = max(i_in, i_out)
     params = lmfit.Parameters()
     params.add("h", value =0.1 , min = 0.0, max = 1.)
-    params.add("i_c", value = 200., min = i_in, max = 1000)
+    params.add("i_c", value = 200., min = int_max , max = 500)
     params.add("x_m", value = x_m, vary = False)
     params.add("sigma", value = sigma, vary = False)
     params.add("i_in", value = i_in, vary = False)
