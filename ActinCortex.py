@@ -6,6 +6,7 @@ import ImageProcess as IM
 import theoreticalModel as TM
 import lmfit
 import cv2
+from matplotlib_scalebar.scalebar import ScaleBar
 #Collect all filenames
 Data = []
 # Search in the current directory (./) and subdirectories for .tif files
@@ -30,7 +31,7 @@ linescan_length = 100   # in pix
 bin_size = 150
 corr = 1.0015       # Magnification correction factor for chromatic shift
 calc_dist = 2    # Dist from peak for i_in and i_out calculation in um
-sigma = 0.17
+sigma = 0.250
 #Panda.DataFrame is tabular-like with column and row labelling possible ??
 df_ALL = pd.DataFrame()    #????? 
 """
@@ -54,19 +55,30 @@ actin = IM.scale(actin_original)
 x_contour, y_contour = IM.smoothed_contour(memb, cell_max_x, cell_max_y, 
                                            cell_min, pix_size, 
                                            linescan_length, 1000)
-#plt.figure(2)
-#plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
-#plt.plot(x_contour,y_contour)
+
 memb_ls, actin_ls, x_0, y_0= IM.smooth_Linescan(memb_original, actin_original,
                                       x_contour, y_contour, linescan_length )
-#plt.figure(3)
-#plt.imshow(memb_ls)
-#plt.show()
-
 r = np.sqrt((x_0 - (np.ones(x_0.shape).T*x_0[:,0]).T)**2 + (y_0 - (np.ones(y_0.shape).T*y_0[:,0]).T)**2)
 rad = r * pix_size
+#plt.figure(2)
+#plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+#plt.plot(x_contour,y_contour, c = 'r', linewidth = '2')
+#plt.xlim(180, 320)
+#plt.ylim(200, 325)
+#scalebar = ScaleBar(pix_size,'um', frameon = False, color = 'w', location= 4)
+#plt.gca().add_artist(scalebar)
+#plt.plot()
+
+plt.figure(3)
+plt.imshow(actin_ls, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+#plt.ylim(100, 400)
+scalebar = ScaleBar(pix_size,'um', frameon = False, color = 'w', location= 4)
+plt.axis('off')
+plt.show()
 
 
+
+"""
 bin_size = 100
 
 average_memb = IM.average_Linescan(memb_ls, bin_size)[8]
@@ -134,4 +146,4 @@ plt.legend()
 plt.savefig(filename.rstrip(".tif")+"_"+str(np.max(bin_size)/len(bin_size))+'_binsteps_0_overlap.png')
 plt.show()
 
-"""
+

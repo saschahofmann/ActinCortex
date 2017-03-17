@@ -6,9 +6,8 @@ from lmfit import Model
 import matplotlib.pyplot as plt
 from pyefd import elliptic_fourier_descriptors
 from scipy.interpolate import RectBivariateSpline
-from scipy.interpolate import NearestNDInterpolator
 from matplotlib.path import Path
-
+from matplotlib_scalebar.scalebar import ScaleBar
 def scale(image):
     """Scales image to an 8-bit image increases the contrast
      and removes an offset"""
@@ -48,7 +47,7 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size):
     
     #plt.figure(1)
     #plt.imshow(closing,origin='lower',cmap = 'gray', 
-    #          interpolation = 'bilinear',vmin=0,vmax=255)   
+    #        interpolation = 'bilinear',vmin=0,vmax=255)   
     #plt.show()
     
     #Conotur finding!
@@ -63,8 +62,8 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size):
             continue
         x,y,w,h = cv2.boundingRect(raw_list[i_cont]) #Fits a bounding box 
                                                      #around the cell
-        if ( h < cell_max_y/pix_size and        #Throw out objects that 
-             w  < cell_max_x/pix_size and       #are too small/too large for us
+        if ( #h < cell_max_y/pix_size and        #Throw out objects that 
+             #w  < cell_max_x/pix_size and       #are too small/too large for us
              min(h,w) > cell_min/pix_size and
              x >2 and y > 2 and
              x+w < IMAGE_WIDTH -2 and #the cell should be in the image and not
@@ -150,17 +149,20 @@ def fitten(linescan, r):
     height, 1: the mean value and 2: the standard deviation"""
     if type(linescan[0]) == np.float64:
         linescan = [linescan]
+    if type(r[0]) == np.float64:
+        r = [r]
     amp, mean, sigma = [], [],[]
     for i in range(len(linescan)):
+        #print i
         # Make a gauss fit
-        max_lin = np.argmax(linescan[i])
+        max_lin = np.argmax(linescan[i][30:70]) + 30
         # Choose two points right and left of the maximum
         line_for_fitting = linescan[i][max_lin -2:max_lin + 3].astype(float)
         y = np.array(line_for_fitting) 
         gmod = Model(gauss)
-        x = r[max_lin -2:max_lin + 3]
+        x = r[i][max_lin -2:max_lin + 3]
         results = gmod.fit(y, x = x, a = linescan[i][max_lin], 
-                           x0 = r[max_lin], sigma = 0.2)
+                           x0 = r[i][max_lin], sigma = 0.2)
         amp.append(results.params["a"].value)
         mean.append(results.params["x0"].value)
         sigma.append(results.params["sigma"].value)
@@ -178,8 +180,18 @@ def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_len
     
     #1.) Move the contour to the origin (0,0) by removing the centroid
     x_contour,y_contour = Cells[ind]['contour'][:,0],Cells[ind]['contour'][:,1]
+    
+    #plt.figure(1)
+    #plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+    #plt.xlim(180, 320)
+    #plt.ylim(200, 325)
+    #scalebar = ScaleBar(pix_size,'um', frameon = False, color = 'w', location= 4)   
+    #plt.gca().add_artist(scalebar)
+    #plt.plot(x_contour,y_contour, c = 'r', linewidth = '2')
+             
     pos_x = int(round(Cells[ind]['pos_x']))
     pos_y = int(round(Cells[ind]['pos_y']))
+    """
     x_contour = x_contour - pos_x
     y_contour = y_contour - pos_y
     #2.) Translate contour to polar coordinates
@@ -208,7 +220,6 @@ def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_len
             #go towards inside the cell and get an intensity profile
             Smallest_difference_rho.append(smallest_difference_rho)  
             Smallest_difference_phi.append(smallest_difference_phi)
-
             # Take membran maximum as fix point
             linescan = img_polar_all[0][0][smallest_difference_phi,
                                           0:smallest_difference_rho]
@@ -216,27 +227,29 @@ def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_len
             #__, memb_max, __ = fitten([linescan],[r])
             #memb_max = np.argmin(abs(r - memb_max))
             memb_max = np.argmax(linescan)
-
             # Write List of radius in um
             phi.append(phi_contour[i])
             radius.append(img_polar_all[1][memb_max])
     x, y = pol2cart(radius, phi)
     x = x + pos_x
     y = y + pos_y
+    #plt.figure(1)
+    #plt.imshow(memb, origin='lower',cmap = 'gray', interpolation = 'bilinear',vmin=0,vmax=255)
+    #plt.plot(x,y)
+    #plt.show()  """
+    x = x_contour
+    y = y_contour
     contour = np.vstack((x,y)).T
     return contour, (pos_x, pos_y)
 
 def smoothed_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length, n = 1000):
     contour, locus = first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, linescan_length )
-    coeffs = elliptic_fourier_descriptors(contour, order=15, normalize= False)
+    coeffs = elliptic_fourier_descriptors(contour, order=10, normalize= False)
     x, y = fourierContour(coeffs, locus, n )
     return x, y
 
-def smooth_Linescan(memb, actin, cell_max_x, cell_max_y, cell_min, 
-                    linescan_length, pix_size, n =1000):
+def smooth_Linescan(memb, actin, x_contour, y_contour, linescan_length):
     
-    x_contour, y_contour = smoothed_contour(memb, cell_max_x, cell_max_y, 
-                                            cell_min, pix_size, linescan_length, n)
     path = Path(np.vstack((x_contour,y_contour)).T)
     # Calculating the slope of our Linescan 
     # First calculate the tangent of the contour
@@ -271,22 +284,20 @@ def smooth_Linescan(memb, actin, cell_max_x, cell_max_y, cell_min,
     mask = np.invert(mask)
     memb_ls[mask, :] = memb_ls[mask, :][:,::-1]
     actin_ls[mask, :]= actin_ls[mask, :][:,::-1]
-    return memb_ls, actin_ls
+    return memb_ls, actin_ls, x, perpendicular_line
     
     
     
 def average_Linescan(Linescan, bin_size, overlap = 0):
-    """Sums up individual Linescans and averages them. The number of averged 
+    """Sums up individual Linescans and averages them. The number of averaged 
     Linescans is determined by bin_size."""
     average_Linescan = []
     a = 0
     while a < len(Linescan):
         if a + bin_size <= len(Linescan):
-            #average_Linescan.append(np.sum(Linescan[a: a + bin_size], 0)/float(bin_size))
             average_Linescan.append(np.mean(Linescan[a: a + bin_size], 0))
         else:
             cut = np.concatenate((Linescan[a: len(Linescan)],Linescan[:bin_size - len(Linescan) + a]),0)
-            #average_Linescan.append(np.sum(cut,0)/float(bin_size))
             average_Linescan.append(np.mean(cut, 0))
         a += bin_size - overlap
     return average_Linescan
@@ -294,6 +305,8 @@ def average_Linescan(Linescan, bin_size, overlap = 0):
 def get_Intensities(average_actin, rad, mean, calc_dist):
     if type(average_actin[0])== np.float64:
         average_actin = [average_actin]
+    if type(rad[0]) == np.float64:
+        rad = [rad]
     Intensity_in, Intensity_out = [],[]
     for i in range(len(average_actin)):
         
@@ -303,9 +316,8 @@ def get_Intensities(average_actin, rad, mean, calc_dist):
         # and outside of the cell
         r_in = mean[i]- calc_dist
         r_out = mean[i] + calc_dist 
-        r_in = np.argmin(abs(r_in - rad)) 
-        r_out = np.argmin(abs(r_out - rad))
-          
+        r_in = np.argmin(abs(r_in - rad[i])) 
+        r_out = np.argmin(abs(r_out - rad[i]))
         # Mean of the 10 next pixel to those distances
         i_in = np.mean(average_actin[i][r_in-10: r_in ]) 
         i_out = np.mean(average_actin[i][r_out: r_out +10])
@@ -335,36 +347,3 @@ def fourierContour(coeffs, locus=(0., 0.), n=300):
         yt += (coeffs[n, 2] * np.cos(2 * (n + 1) * np.pi * t)) + \
               (coeffs[n, 3] * np.sin(2 * (n + 1) * np.pi * t))
     return xt, yt
-
-def area_of_polygon(x, y):
-    """Calculates the signed area of an arbitrary polygon given its verticies
-    http://stackoverflow.com/a/4682656/190597 (Joe Kington)
-    http://softsurfer.com/Archive/algorithm_0101/algorithm_0101.htm#2D%20Polygons
-    """
-    area = 0.0
-    for i in xrange(-1, len(x) - 1):
-        area += x[i] * (y[i + 1] - y[i - 1])
-    return abs(area) / 2.0
-
-def centroid_of_polygon(points):
-    """
-    http://stackoverflow.com/a/14115494/190597 (mgamba)
-    Centroid of polygon: http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
-    """
-    import itertools as IT
-    area = area_of_polygon(*zip(*points))
-    result_x = 0
-    result_y = 0
-    N = len(points)
-    points = IT.cycle(points)
-    x1, y1 = next(points)
-    for i in range(N):
-        x0, y0 = x1, y1
-        x1, y1 = next(points)
-        cross = (x0 * y1) - (x1 * y0)
-        result_x += (x0 + x1) * cross
-        result_y += (y0 + y1) * cross
-    result_x /= (area * 6.0)
-    result_y /= (area * 6.0)
-    return abs(result_x), abs(result_y)
-                    
