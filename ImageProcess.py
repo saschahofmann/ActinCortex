@@ -45,10 +45,10 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size):
     element = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernsize,kernsize))
     closing = cv2.morphologyEx(cache2, cv2.MORPH_CLOSE, element )
     
-    #plt.figure(1)
-    #plt.imshow(closing,origin='lower',cmap = 'gray', 
-    #        interpolation = 'bilinear',vmin=0,vmax=255)   
-    #plt.show()
+    plt.figure(1)
+    plt.imshow(closing,origin='lower',cmap = 'gray', 
+            interpolation = 'bilinear',vmin=0,vmax=255)   
+    plt.show()
     
     #Conotur finding!
     _, raw_list, _ = cv2.findContours(closing, cv2.RETR_LIST,
@@ -161,8 +161,13 @@ def fitten(linescan, r):
         y = np.array(line_for_fitting) 
         gmod = Model(gauss)
         x = r[i][max_lin -2:max_lin + 3]
-        results = gmod.fit(y, x = x, a = linescan[i][max_lin], 
+        
+        par = gmod.make_params( a = linescan[i][max_lin], 
                            x0 = r[i][max_lin], sigma = 0.2)
+        par['x0'].set(min = x[0], max = x[-1])
+        par['a'].set(min = 0)
+        #par['x'].set(vary = False)
+        results = gmod.fit(y, par, x=x)
         amp.append(results.params["a"].value)
         mean.append(results.params["x0"].value)
         sigma.append(results.params["sigma"].value)
