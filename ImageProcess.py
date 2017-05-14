@@ -29,7 +29,7 @@ def scale(image):
     return image.astype(np.uint8) # bring the numbers in an integer 
                                   # format which opencv likes
 
-def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
+def findContour(memb, cell_max_x, cell_max_y, cell_min, threshold, pix_size,
                 show_threshold):
     """Finds the cell contour by thresholding and cv2.findcontours.
     Parameters
@@ -40,6 +40,8 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
                                Maximum cell size in x and y direction in um.
     cell_min: float
               Minimum cell size in um
+    threshold:integer
+              Threshold to find the cell contour
     pix_size: float
               Size of a single Pixel in um/pix 
               
@@ -51,7 +53,7 @@ def findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
            """
     # Thresholding
     _, cache = cv2.threshold(memb, 200, 255, cv2.THRESH_TOZERO_INV)
-    _, cache2 =cv2.threshold(cache, 60,255,cv2.THRESH_BINARY)
+    _, cache2 =cv2.threshold(cache, threshold,255,cv2.THRESH_BINARY)
     
     # Closing holes
     binaryops = 5
@@ -216,7 +218,7 @@ def fitten(linescan, r):
         sigma.append(results.params["sigma"].value)
     return amp, mean, sigma
                    
-def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, 
+def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size, threshold,
                 linescan_length, show_threshold, show_contour, 
                 use_maxima = False):
     """Creates a contour on the maxima of the membrane by perfoming a 
@@ -242,8 +244,8 @@ def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
                      line of contour
     """
     # Get the contour from cv.findcontour
-    Cells = findContour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
-                        show_threshold)
+    Cells = findContour(memb, cell_max_x, cell_max_y, cell_min, threshold, 
+                        pix_size, show_threshold)
     #Use the outer contour (larger area) 
     #to do a linescan, starting at the contour
     ind = np.argmax([Cells[i]['area_um'] for i in range(len(Cells))])
@@ -304,7 +306,7 @@ def first_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
     contour = np.vstack((x,y)).T
     return contour, (pos_x, pos_y)
 
-def smoothed_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
+def smoothed_contour(memb, cell_max_x,cell_max_y,cell_min, threshold, pix_size,
                       linescan_length, n = 1000,show_threshold = False,
                       show_contour = False, show_smooth_con = False):
     """
@@ -332,8 +334,8 @@ def smoothed_contour(memb, cell_max_x, cell_max_y, cell_min, pix_size,
     """
     # Get raw contour
     contour, locus = first_contour(memb, cell_max_x, cell_max_y, cell_min,
-                                   pix_size, linescan_length, show_threshold,
-                                    show_contour )
+                                   pix_size, threshold, linescan_length, 
+                                   show_threshold, show_contour )
     # Calculate Fourier coefficients up to order 10
     coeffs = elliptic_fourier_descriptors(contour, order=10, normalize= False)
     # Calculate the new contour coordinates

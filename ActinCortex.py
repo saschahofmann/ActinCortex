@@ -41,29 +41,31 @@ import ImageProcess as IM
 import theoreticalModel as TM
 
 # INPUT-PARAMETERS:
-# Define Pixelsize, bin size for averaging,the length of the linescans. 
-# The default is chosen for LSM700 images taken with the 63x oil immersion 
-# objective. Sigma needs to be chose according to the PSF of the Microscope
-# depending on the used Laser
+# Define Pixelsize, bin size for averaging, threshold and the length of the 
+# linescans. The default is chosen for LSM700 images taken with the 63x oil 
+# immersion objective. Sigma needs to be chose according to the PSF of the 
+# Microscope depending on the used Laser
 # TODO: include automated pixelsize recognition
-pix_size = 40.65/512    # um/pix
+pix_size = 101.61/512    # um/pix
 linescan_length = 100   # pix 
+threshold = 60          # Threshold for finding the contour/cell
 sigma = 0.250           # um
 bin_size = 150
 calc_dist = 1           # Distance from peak to calculate intra- and 
                         # extracellular Intensity in um
 n = 1000                # Points in the contour = Number of Linescans
-#Choose file format:
-file_format = ".lsm"    # ".lsm" or ".tif"
+#Choose file format (for tif the channels have to be split and named 'actin' 
+#  and 'memb':
+file_format = ".tif"    # ".lsm" or ".tif"
 # Choose maximal and minimal Cellsize to filter the contours
 cell_max_y = 25         # um
 cell_max_x = 25         # um
 cell_min = 10           # um
 # Choose which image plots should be shown:
-show_thresholded_image = True 
-show_contour = True
-show_smooth_contour = True
-show_linescan = True
+show_thresholded_image = False 
+show_contour = False
+show_smooth_contour = False
+show_linescan = False
 show_bin_size_dependency = False
 
 #MAIN PROGRAM:
@@ -93,14 +95,14 @@ for filename in Data:
 # To find the contour images are scaled to 255      
 memb = IM.scale(memb_original)
 x_contour, y_contour = IM.smoothed_contour(memb, cell_max_x, cell_max_y, 
-                                           cell_min, pix_size, linescan_length,
-                                           n, show_thresholded_image, 
+                                           cell_min, threshold, pix_size, 
+                                           linescan_length, n, 
+                                           show_thresholded_image, 
                                            show_contour, show_smooth_contour)
 # Linescans need to be done for the original, unscaled images
 memb_ls, actin_ls, r= IM.smooth_Linescan(memb_original, actin_original,
                                       x_contour, y_contour, linescan_length)
 rad = r * pix_size      # Radius in um
-print type(memb)
 if show_linescan:
     plt.figure(4)
     plt.imshow(actin_ls, origin='lower',cmap = 'gray', 
@@ -122,6 +124,17 @@ Intensity_in, Intensity_out = IM.get_Intensities(average_actin, average_rad,
 # Fitting is done by least square fitting in lmfit
 h = []
 i_c = []
+# Write output file:
+docname = filename.rstrip(file_format).rstrip('_memb')
+doc = open(docname, 'w')
+doc.write(docname + '\n Actin Cortex thickness measurement \n'+'bin_size = ' 
+          + str(bin_size) + '\nObjective STD = '
+          + str(sigma) + ' um' + ' \n \n' )
+
+doc.write(('{:10} \t {:10} \t {:10} \t {:10} \t {:10} \t {:10} \t {:10} \t'
+          + ' {:10} \t \n').format('Linescan', 'Memb_pos', 'Actin_pos', 
+                               'Actin_height', 'Intensity_in', 'Intensity_out',
+                               'i_c', 'h'))
 for i in xrange(len(average_memb)):
     # Define parameters
     pars = TM.get_parameters_default(memb_mean[i], sigma, Intensity_in[i], 
@@ -131,7 +144,14 @@ for i in xrange(len(average_memb)):
                                                     'i_p': actin_amp[i]})
     i_c.append(fit.params["i_c"].value)
     h.append(fit.params["h"].value)
+    doc.write(('{:10} \t {:10} \t {:10} \t {:10} \t {:10} \t {:10} \t {:10} \t'
+              + ' {:10}  \n').format(str(i), memb_mean[i], actin_mean[i],
+                                       actin_amp[i], Intensity_in[i], 
+                                       Intensity_out[i], i_c[i], h[i] ))
+    
+doc.close()
 # Calculate the average thickness over all Linescans
+result = open(docname + '_results', 'w')
 h_mean = np.mean(h)
 h_std = np.std(h)
 i_c_mean = np.mean(i_c)
@@ -139,9 +159,20 @@ i_c_std = np.std(i_c)
 i_in_mean = np.mean(Intensity_in)
 i_out_mean = np.mean(Intensity_out)
 
-# Write output file:
-doc = open(filename.rstrip(file_format), 'w')
-doc.write('Linescan')
+result.write(docname + '\nActin Cortex thickness measurement results after'
+          + ' averaging over all bins \n' + 'bin_size = ' 
+          + str(bin_size) + '\nObjective STD = '
+          + str(sigma) + ' um' + ' \n \n' )
+
+result.write(('{:10} \t {:10} \t {:10} \t {:10} \t {:10} \t  {:10} \n').format(
+                                'Intensity_in', 'Intensity_out', 
+                               'i_c', 'i_c_std', 'h',  'h_std'))
+result.write(('{:10} \t {:10f} \t {:10f} \t {:10f} \t {:10f} \t {:10f} \n')
+             .format(i_in_mean, i_out_mean, i_c_mean, i_c_std, h_mean, h_std ))
+result.close()
+
+print ('Calculating successful: Average cortex thickness is: {} um '
+      .format(h_mean))
 # Show bin_size dependency:
 if show_bin_size_dependency:
     # Define array of Bin_sizes
